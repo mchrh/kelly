@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Compact Kelly mark for small sizes: the logo's proportions with a heavier stroke and dot. -->
+  <style>
+    .curve { stroke: #171B1C; }
+    @media (prefers-color-scheme: dark) { .curve { stroke: #E8EDF3; } }
+  </style>
+  <defs>
+    <mask id="gap" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#fff"/>
+      <circle cx="32" cy="25" r="10.5" fill="#000"/>
+    </mask>
+  </defs>
+  <path class="curve" d="M2 45C19.8 45 16.9 25 32 25S44.2 45 62 45" fill="none" stroke-width="5" mask="url(#gap)"/>
+  <circle cx="32" cy="25" r="7" fill="#EA6638"/>
+</svg>

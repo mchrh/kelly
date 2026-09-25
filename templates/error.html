@@ -4,11 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kelly — data file error</title>
+  {% include "_head_icons.html" %}
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <div class="page">
-    <header class="top"><h1>Kelly</h1></header>
+    <header class="top"><h1 class="brand">{% include "_logo_mark.html" %}<span>Kelly</span></h1></header>
     <div class="card error-card" role="alert">
       <h2>The data file could not be loaded</h2>
       <p>{{ message }}</p>

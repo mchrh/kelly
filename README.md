@@ -1,3 +1,5 @@
+<p align="center"><img src="static/logo.svg" alt="Kelly" width="220"></p>
+
 # Kelly
 
 A personal dashboard for tracking private bets between friends. It records each person's stake and agreed odds, estimates what each position is currently worth, and settles bets manually or automatically from a linked Polymarket market.

@@ -9,6 +9,7 @@
   --pos: #6DD3A0;
   --neg: #F18A93;
   --warn: #E6C170;
+  --logo-dot: #EA6638;
   --radius: 12px;
   color-scheme: dark;
 }
@@ -30,6 +31,8 @@ body {
 
 h1, h2 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 h1 { font-size: 22px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo-mark { width: 68px; height: auto; color: var(--text); flex-shrink: 0; }
 h2 { font-size: 16px; }
 p { margin: 0; }
 a { color: var(--accent); text-decoration: none; }

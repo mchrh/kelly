@@ -419,3 +419,12 @@ def test_editing_a_linked_bet_keeps_its_link(client, linked_bet, data_file):
     assert bet["title"] == "Renamed"
     assert bet["polymarket"] == linked_bet["polymarket"]
     assert bet["market_quote"] == linked_bet["market_quote"]
+
+
+def test_logo_and_icons_are_served(client):
+    html = client.get("/").get_data(as_text=True)
+    assert 'class="logo-mark"' in html
+    for name in ("favicon.svg", "favicon-32.png", "apple-touch-icon.png", "logo.svg"):
+        if name != "logo.svg":
+            assert f"/static/{name}" in html
+        assert client.get(f"/static/{name}").status_code == 200
