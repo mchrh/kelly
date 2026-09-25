@@ -1,5 +1,8 @@
 {% set b = v.bet %}
 {% set done = b.settlement is not none %}
+{# Binary bets show the net win; the gross amount is the bet amount both sides share. #}
+{% set binary = b.type == 'binary' %}
+{% set win_label = 'To win' if binary else 'Win payout' %}
 <article class="card" id="bet-{{ b.id }}">
   <header class="card-head">
     <div class="card-title">
@@ -79,7 +82,7 @@
         <th scope="col" class="n">Stake</th>
         <th scope="col" class="n">Entry odds</th>
         {% if done %}
-          <th scope="col" class="n">Win payout</th>
+          <th scope="col" class="n">{{ win_label }}</th>
           <th scope="col">Result</th>
           <th scope="col" class="n">Final payout</th>
           <th scope="col" class="n">Realized P/L</th>
@@ -87,7 +90,7 @@
           <th scope="col" class="n">Current prob.</th>
           <th scope="col" class="n">Est. value</th>
           <th scope="col" class="n">Est. P/L</th>
-          <th scope="col" class="n">Win payout</th>
+          <th scope="col" class="n">{{ win_label }}</th>
         {% endif %}
       </tr>
     </thead>
@@ -99,7 +102,7 @@
           <td data-label="Stake" class="n">{{ pv.stake | money }}</td>
           <td data-label="Entry odds" class="n"><span>{{ pv.odds | odds }} <span class="sub">{{ pv.entry_probability | pct }}</span></span></td>
           {% if done %}
-            <td data-label="Win payout" class="n"><span>{{ pv.payout | money }} <span class="sub">{{ pv.profit_if_won | signed }} profit</span></span></td>
+            <td data-label="{{ win_label }}" class="n">{{ pv.profit_if_won | signed if binary else pv.payout | money }}</td>
             <td data-label="Result">{{ {'won': 'Won', 'lost': 'Lost', 'void': 'Refunded'}[pv.result] }}</td>
             <td data-label="Final payout" class="n">{{ pv.final_payout | money }}</td>
             <td data-label="Realized P/L" class="n"><span class="pl {{ pv.realized_pl | pl_class }}">{{ pv.realized_pl | signed }}</span></td>
@@ -107,7 +110,7 @@
             <td data-label="Current prob." class="n">{{ pv.probability | pct }}</td>
             <td data-label="Est. value" class="n">{{ pv.value | money }}</td>
             <td data-label="Est. P/L" class="n"><span class="pl {{ pv.pl | pl_class }}">{{ pv.pl | signed }}</span></td>
-            <td data-label="Win payout" class="n"><span>{{ pv.payout | money }} <span class="sub">{{ pv.profit_if_won | signed }} profit</span></span></td>
+            <td data-label="{{ win_label }}" class="n">{{ pv.profit_if_won | signed if binary else pv.payout | money }}</td>
           {% endif %}
         </tr>
       {% endfor %}

@@ -48,7 +48,11 @@ def test_binary_head_to_head_amounts(client, data_file):
     assert [p["payout"] for p in positions] == ["100", "100"] and "stake" not in positions[0]
     assert html.count('data-label="Stake" class="n">$20.00') == 1
     assert html.count('data-label="Stake" class="n">$80.00') == 1
-    assert "+$80.00 profit" in html and "+$20.00 profit" in html
+    # Binary rows show only the net win, not the shared bet amount.
+    assert '<th scope="col" class="n">To win</th>' in html and "Win payout" not in html
+    assert 'data-label="To win" class="n">+$80.00' in html
+    assert 'data-label="To win" class="n">+$20.00' in html
+    assert "$100.00" not in html
     assert html.count('data-label="Est. value" class="n">$20.00') == 1
     assert html.count('data-label="Est. value" class="n">$80.00') == 1
 
@@ -72,7 +76,7 @@ def test_older_binary_files_read_stake_as_bet_amount(data_file, api):
 def test_missing_prices_show_dash_but_keep_entry_terms(client, data_file):
     html = client.post("/bets", data=bet_form()).get_data(as_text=True)
     assert saved(data_file)["bets"][0]["manual_probabilities"] is None
-    assert "2.50" in html and "$100.00" in html
+    assert "2.50" in html and 'data-label="To win" class="n">+$60.00' in html
     assert 'data-label="Est. value" class="n">—' in html
     assert 'data-label="Current prob." class="n">—' in html
 
@@ -87,6 +91,8 @@ def test_multiple_choice_uses_each_outcomes_probability(client, data_file):
     assert bet["manual_probabilities"] == {"a": "0.5", "b": "0.3", "c": "0.2"}
     assert "$100.00" in html      # 200 × 0.5
     assert "$120.00" in html      # 400 × 0.3
+    # Multiple choice keeps the gross payout.
+    assert 'data-label="Win payout" class="n">$200.00' in html and "To win" not in html
 
 
 def test_multiple_choice_needs_three_distinct_outcomes(client):
