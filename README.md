@@ -4,6 +4,8 @@ A personal dashboard for tracking private bets between friends. It records each 
 
 It runs locally and keeps everything in one JSON file. There are no accounts and no database.
 
+> **Your bets live in `data/bets.json`.** That file is the only record of your bets, and it is deliberately not tracked by git. Keep it in the `data/` directory, and back it up or copy it across when you move or re-clone the project. If it's missing, the app starts with an empty dashboard and creates a new file the first time you save a bet.
+
 ## Install
 
 Requires Python 3.12 or newer.
