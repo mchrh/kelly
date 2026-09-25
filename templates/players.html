@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Players · Kelly{% endblock %}
+
+{% block content %}
+<main class="stack">
+  <section class="card">
+    <header class="section-head">
+      <h2>Players</h2>
+      <p class="muted">Everyone who has placed a bet. These names are suggested when you add a bettor.</p>
+    </header>
+    {% if rows %}
+      <table class="positions">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col" class="n">Open bets</th>
+            <th scope="col" class="n">All bets</th>
+            <th scope="col">Added</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <th scope="row" data-label="Name">{{ row.name }}</th>
+              <td data-label="Open bets" class="n">{{ row.open }}</td>
+              <td data-label="All bets" class="n">{{ row.bets }}</td>
+              <td data-label="Added"><time data-ts="{{ row.added_at }}">{{ row.added_at }}</time></td>
+              <td class="n actions">
+                <form method="post" action="{{ url_for('bets.delete_player') }}"
+                      data-confirm-title="Remove {{ row.name }}?"
+                      data-confirm-message="They’ll no longer be suggested or shown on the leaderboard. Their past results are kept and come back if they bet again."
+                      data-confirm-button="Remove player">
+                  <input type="hidden" name="name" value="{{ row.name }}">
+                  {% if row.open %}
+                    <span class="hint">In {{ row.open }} open bet{{ 's' if row.open != 1 }}</span>
+                  {% else %}
+                    <button type="submit" class="link-btn danger-text" aria-label="Delete {{ row.name }}">Delete</button>
+                  {% endif %}
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="hint table-note">Players in an open bet can’t be deleted until the bet is settled or they’re removed from it.</p>
+    {% else %}
+      <p class="empty">No players yet. Anyone who places a bet is added here.</p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

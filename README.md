@@ -41,6 +41,12 @@ All amounts use a single display currency, set by the `currency` field at the to
 
 `USD`, `EUR`, `GBP`, `JPY`, `CAD` and `AUD` show a symbol. Any other code is shown as a prefix, for example `CHF 12.00`. Change the value while the app is stopped, then start it again.
 
+## Players and leaderboard
+
+- **Players**: anyone who places a bet is added to the players list. Their names are suggested when you add a bettor. You can delete a player on the **Players** page once they're no longer in an open bet. That removes them from suggestions and from the leaderboard, but keeps their past results; if they bet again, they're added back with their history.
+- **Results log**: when a bet settles, manually or from Polymarket, each bettor's result is written to a log in `data/bets.json`. Correcting a result replaces that bet's entries. Deleting a bet keeps its logged results.
+- **Leaderboard**: ranks players by net profit across the log, with bets settled, wins, win rate and amount staked. Void bets are left out. Below it is a list of wins, newest first.
+
 ## Automatic updates
 
 While the dashboard is open in a browser tab, it refreshes every 60 seconds. It pauses while the tab is hidden and catches up when you return. **Refresh** runs an update immediately. Each update:

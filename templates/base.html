@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Kelly{% endblock %}</title>
+  {% include "_head_icons.html" %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <div class="top-start">
+        <h1 class="brand">{% include "_logo_mark.html" %}<span>Kelly</span></h1>
+        <nav class="nav" aria-label="Pages">
+          {% for endpoint, label in [('bets.index', 'Bets'), ('bets.leaderboard', 'Leaderboard'), ('bets.players', 'Players')] %}
+            <a href="{{ url_for(endpoint) }}" {% if request.endpoint == endpoint %}aria-current="page"{% endif %}>{{ label }}</a>
+          {% endfor %}
+        </nav>
+      </div>
+      <div class="top-actions">{% block actions %}{% endblock %}</div>
+    </header>
+
+    {% block content %}{% endblock %}
+  </div>
+
+  {% block overlays %}{% endblock %}
+
+  <dialog class="confirm" id="confirm-dialog" aria-labelledby="confirm-title">
+    <form method="dialog">
+      <h2 id="confirm-title"></h2>
+      <p class="muted" data-confirm-message></p>
+      <div class="form-actions">
+        <button value="cancel" class="btn" autofocus>Cancel</button>
+        <button value="confirm" class="btn danger" data-confirm-button></button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

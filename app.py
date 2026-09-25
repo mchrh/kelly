@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from flask import Blueprint, Flask, abort, current_app, jsonify, render_template, request
+from flask import Blueprint, Flask, abort, current_app, jsonify, redirect, render_template, request, url_for
 
 import calc
 import polymarket as pm
@@ -71,9 +71,44 @@ def new_id():
 
 # --- persistence ---------------------------------------------------------------
 
+def player_key(name):
+    return name.strip().casefold()
+
+
+def add_players(state, bet):
+    """Add the bet's bettors to the players list, keeping the first spelling seen."""
+    known = {player_key(p["name"]) for p in state["players"]}
+    for position in bet["positions"]:
+        if player_key(position["name"]) not in known:
+            state["players"].append({"name": position["name"], "added_at": now_iso()})
+            known.add(player_key(position["name"]))
+
+
+def record_results(state, bet):
+    """Log each bettor's result for a settled bet, replacing any earlier entries for it.
+
+    Entries are snapshots, so they outlive later edits or deletion of the bet.
+    """
+    state["results"] = [r for r in state["results"] if r["bet_id"] != bet["id"]]
+    labels = {o["id"]: o["label"] for o in bet["outcomes"]}
+    for position in bet["positions"]:
+        view = calc.position_view(position, None, bet["settlement"])
+        state["results"].append({
+            "bet_id": bet["id"],
+            "bet_title": bet["title"],
+            "player": position["name"],
+            "pick": labels.get(position["outcome_id"], "?"),
+            "result": view["result"],
+            "stake": str(view["stake"]),
+            "payout": str(view["final_payout"]),
+            "profit": str(view["realized_pl"]),
+            "settled_at": bet["settlement"]["settled_at"],
+        })
+
+
 def load_state(path):
     if not path.exists():
-        return {"currency": DEFAULT_CURRENCY, "bets": []}
+        return {"currency": DEFAULT_CURRENCY, "players": [], "results": [], "bets": []}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -88,6 +123,16 @@ def load_state(path):
             for position in bet.get("positions", []):
                 if "payout" not in position and "stake" in position:
                     position["payout"] = position.pop("stake")
+    # Files from before players and results were tracked: derive both from the bets.
+    if "players" not in data:
+        data["players"] = []
+        for bet in data["bets"]:
+            add_players(data, bet)
+    if "results" not in data:
+        data["results"] = []
+        for bet in data["bets"]:
+            if bet.get("settlement"):
+                record_results(data, bet)
     return data
 
 
@@ -448,6 +493,7 @@ def refresh_markets():
                     bet["settlement"] = {"result": "winner", "outcome_id": result[1],
                                          "source": "polymarket", "settled_at": now_iso()}
                     bet["review"] = None
+                    record_results(ctx()["state"], bet)
                     changed = True
                 elif result and (bet.get("review") or {}).get("reason") != result[1]:
                     bet["review"] = {"reason": result[1], "flagged_at": now_iso()}
@@ -471,7 +517,7 @@ def refresh_bet_quote(bet):
 
 
 def form_response(form, errors, status=200):
-    names = sorted({p["name"] for b in bets() for p in b["positions"]}, key=str.casefold)
+    names = sorted((p["name"] for p in ctx()["state"]["players"]), key=str.casefold)
     return render_template("_bet_form.html", form=form, errors=errors, names=names,
                            outcomes=form_outcomes(form), binary_outcomes=BINARY_OUTCOMES), status
 
@@ -518,6 +564,7 @@ def create_bet():
         "updated_at": stamp,
     }
     bets().append(bet)
+    add_players(ctx()["state"], bet)
     if bet["polymarket"]:
         refresh_bet_quote(bet)
     save()
@@ -534,6 +581,7 @@ def update_bet(bet_id):
     stamp = now_iso()
     if form["locked"]:
         bet.update(fields)
+        record_results(ctx()["state"], bet)  # keep logged titles in step with the bet
     else:
         link, manual = fields.pop("polymarket"), fields.pop("manual_probabilities")
         old_link = bet.get("polymarket")
@@ -547,6 +595,7 @@ def update_bet(bet_id):
             bet.update(polymarket=link, market_quote=None, pricing_source="polymarket",
                        manual_probabilities=None, manual_updated_at=None, review=None)
             refresh_bet_quote(bet)
+        add_players(ctx()["state"], bet)
     bet["updated_at"] = stamp
     save()
     return render_dashboard()
@@ -600,6 +649,7 @@ def set_settlement(bet_id):
     bet["settlement"] = {**result, "source": "manual", "settled_at": now_iso()}
     bet["review"] = None
     bet["updated_at"] = now_iso()
+    record_results(ctx()["state"], bet)
     save()
     return render_dashboard()
 
@@ -607,7 +657,7 @@ def set_settlement(bet_id):
 @bp.post("/bets/<bet_id>/delete")
 def delete_bet(bet_id):
     bet = find_bet(bet_id)
-    bets().remove(bet)
+    bets().remove(bet)  # logged results stay on the leaderboard
     ctx()["refresh"]["failed"].discard(bet_id)
     save()
     return render_dashboard()
@@ -638,6 +688,63 @@ def resolve_link():
 def refresh():
     refresh_markets()
     return render_dashboard()
+
+
+def open_bet_counts():
+    counts = {}
+    for bet in bets():
+        if not bet.get("settlement"):
+            for key in {player_key(p["name"]) for p in bet["positions"]}:
+                counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+@bp.get("/leaderboard")
+def leaderboard():
+    """Players ranked by net profit across logged results; deleted players are left out."""
+    state = ctx()["state"]
+    rows = {player_key(p["name"]): {"name": p["name"], "settled": 0, "wins": 0,
+                                    "staked": Decimal(0), "net": Decimal(0)} for p in state["players"]}
+    for entry in state["results"]:
+        row = rows.get(player_key(entry["player"]))
+        if row is None or entry["result"] == "void":
+            continue
+        row["settled"] += 1
+        row["wins"] += entry["result"] == "won"
+        row["staked"] += Decimal(entry["stake"])
+        row["net"] += Decimal(entry["profit"])
+    for row in rows.values():
+        row["win_rate"] = Decimal(row["wins"]) / row["settled"] if row["settled"] else None
+    ranked = sorted(rows.values(), key=lambda r: (-r["net"], -r["wins"], r["name"].casefold()))
+    # Newest first; entries logged later win ties within the same second.
+    logged = [(r["settled_at"], i, r) for i, r in enumerate(state["results"]) if r["result"] == "won"]
+    wins = [dict(r, stake=Decimal(r["stake"]), profit=Decimal(r["profit"])) for _, _, r in sorted(logged, reverse=True)]
+    return render_template("leaderboard.html", rows=ranked, wins=wins)
+
+
+@bp.get("/players")
+def players():
+    counts = open_bet_counts()
+    totals = {}
+    for bet in bets():
+        for key in {player_key(p["name"]) for p in bet["positions"]}:
+            totals[key] = totals.get(key, 0) + 1
+    rows = [{**p, "open": counts.get(player_key(p["name"]), 0), "bets": totals.get(player_key(p["name"]), 0)}
+            for p in sorted(ctx()["state"]["players"], key=lambda p: p["name"].casefold())]
+    return render_template("players.html", rows=rows)
+
+
+@bp.post("/players/delete")
+def delete_player():
+    key = player_key(request.form.get("name", ""))
+    roster = ctx()["state"]["players"]
+    if not any(player_key(p["name"]) == key for p in roster):
+        abort(404)
+    if open_bet_counts().get(key):
+        abort(409)  # the page disables delete while the player is in an open bet
+    roster[:] = [p for p in roster if player_key(p["name"]) != key]
+    save()
+    return redirect(url_for("bets.players"), 303)
 
 
 # --- template filters and app factory --------------------------------------------------

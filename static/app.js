@@ -9,14 +9,13 @@
   const refreshBtn = document.getElementById("refresh-btn");
   const addBtn = document.getElementById("add-btn");
   const statusEl = document.getElementById("refresh-status");
-  const confirmDialog = document.getElementById("confirm-delete");
+  const confirmDialog = document.getElementById("confirm-dialog");
 
   let currentTab = "active";
   try { currentTab = localStorage.getItem("bets.tab") || "active"; } catch (_) { /* storage unavailable */ }
   let inFlight = false;
   let lastRefresh = 0;
   let openerId = null;
-  let pendingDelete = null;
 
   // --- formatting -------------------------------------------------------------
 
@@ -57,6 +56,32 @@
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return "id-" + Date.now().toString(36) + Math.random().toString(36).slice(2);
   }
+
+  // --- confirmation (every page) -------------------------------------------------------------
+
+  function confirmAction({ title, message, button }) {
+    confirmDialog.querySelector("#confirm-title").textContent = title;
+    confirmDialog.querySelector("[data-confirm-message]").textContent = message;
+    confirmDialog.querySelector("[data-confirm-button]").textContent = button;
+    confirmDialog.returnValue = "";
+    confirmDialog.showModal();
+    return new Promise((resolve) => {
+      confirmDialog.addEventListener("close", () => resolve(confirmDialog.returnValue === "confirm"), { once: true });
+    });
+  }
+
+  // Plain forms that need a confirmation step, such as deleting a player.
+  document.addEventListener("submit", async (e) => {
+    const form = e.target;
+    if (!form.dataset.confirmTitle) return;
+    e.preventDefault();
+    const { confirmTitle: title, confirmMessage: message, confirmButton: button } = form.dataset;
+    if (await confirmAction({ title, message, button })) form.submit();
+    else form.querySelector('button[type="submit"]').focus();
+  });
+
+  formatDates(document);
+  if (!dashboard) return; // the rest drives the bets dashboard
 
   // --- tabs -------------------------------------------------------------
 
@@ -262,10 +287,7 @@
     const del = e.target.closest("[data-delete]");
     if (del) {
       closeMenus();
-      pendingDelete = { url: del.dataset.delete, openerId: openerFor(del) };
-      confirmDialog.querySelector("[data-bet-title]").textContent = `“${del.dataset.title}”`;
-      confirmDialog.returnValue = "";
-      confirmDialog.showModal();
+      deleteBet(del);
       return;
     }
     const tab = e.target.closest('[role="tab"]');
@@ -279,17 +301,20 @@
     selectTab(tab.dataset.tab === "active" ? "completed" : "active", true);
   });
 
-  confirmDialog.addEventListener("close", async () => {
-    const request = pendingDelete;
-    pendingDelete = null;
-    if (!request) return;
-    if (confirmDialog.returnValue !== "delete") {
-      const back = document.getElementById(request.openerId);
+  async function deleteBet(trigger) {
+    const opener = openerFor(trigger);
+    const confirmed = await confirmAction({
+      title: `Delete “${trigger.dataset.title}”?`,
+      message: "This removes the bet and its positions. Results already logged on the leaderboard are kept.",
+      button: "Delete bet",
+    });
+    if (!confirmed) {
+      const back = document.getElementById(opener);
       if (back) back.focus();
       return;
     }
     try {
-      const response = await fetch(request.url, { method: "POST" });
+      const response = await fetch(trigger.dataset.delete, { method: "POST" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       setDashboard(await response.text());
     } catch (err) {
@@ -298,7 +323,7 @@
     }
     const tab = dashboard.querySelector('[role="tab"][aria-selected="true"]');
     (tab || addBtn).focus();
-  });
+  }
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape" || confirmDialog.open) return;
@@ -708,7 +733,6 @@
 
   // --- start -------------------------------------------------------------
 
-  formatDates(document);
   applyTab();
   refresh();
   setInterval(refreshIfDue, 5000);

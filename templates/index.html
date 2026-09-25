@@ -1,44 +1,20 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kelly</title>
-  {% include "_head_icons.html" %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-  <div class="page">
-    <header class="top">
-      <h1 class="brand">{% include "_logo_mark.html" %}<span>Kelly</span></h1>
-      <div class="top-actions">
-        <span class="refresh-status" id="refresh-status" aria-live="polite"></span>
-        <button type="button" class="btn" id="refresh-btn">Refresh</button>
-        <button type="button" class="btn primary" id="add-btn" data-drawer="{{ url_for('bets.new_bet') }}">Add bet</button>
-      </div>
-    </header>
+{% extends "base.html" %}
 
-    <main id="dashboard">
-      {% include "_dashboard.html" %}
-    </main>
-  </div>
+{% block actions %}
+  <span class="refresh-status" id="refresh-status" aria-live="polite"></span>
+  <button type="button" class="btn" id="refresh-btn">Refresh</button>
+  <button type="button" class="btn primary" id="add-btn" data-drawer="{{ url_for('bets.new_bet') }}">Add bet</button>
+{% endblock %}
 
+{% block content %}
+  <main id="dashboard">
+    {% include "_dashboard.html" %}
+  </main>
+{% endblock %}
+
+{% block overlays %}
   <div class="scrim" id="scrim" hidden></div>
   <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
     <div class="drawer-body" id="drawer-body"></div>
   </aside>
-
-  <dialog class="confirm" id="confirm-delete" aria-labelledby="confirm-title">
-    <form method="dialog">
-      <h2 id="confirm-title">Delete <span data-bet-title></span>?</h2>
-      <p class="muted">This removes the bet and all its positions. It can’t be undone.</p>
-      <div class="form-actions">
-        <button value="cancel" class="btn" autofocus>Cancel</button>
-        <button value="delete" class="btn danger">Delete bet</button>
-      </div>
-    </form>
-  </dialog>
-
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
-</body>
-</html>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard · Kelly{% endblock %}
+
+{% block content %}
+<main class="stack">
+  <section class="card">
+    <header class="section-head">
+      <h2>Leaderboard</h2>
+      <p class="muted">Ranked by net profit on settled bets. Void bets are left out.</p>
+    </header>
+    {% if rows %}
+      <table class="positions">
+        <thead>
+          <tr>
+            <th scope="col" class="n rank">#</th>
+            <th scope="col">Player</th>
+            <th scope="col" class="n">Settled</th>
+            <th scope="col" class="n">Wins</th>
+            <th scope="col" class="n">Win rate</th>
+            <th scope="col" class="n">Staked</th>
+            <th scope="col" class="n">Net P/L</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td data-label="Rank" class="n rank">{{ loop.index }}</td>
+              <th scope="row" data-label="Player"><span class="rank-inline">{{ loop.index }}.</span>{{ row.name }}</th>
+              <td data-label="Settled" class="n">{{ row.settled }}</td>
+              <td data-label="Wins" class="n">{{ row.wins }}</td>
+              <td data-label="Win rate" class="n">{{ row.win_rate | pct }}</td>
+              <td data-label="Staked" class="n">{{ row.staked | money }}</td>
+              <td data-label="Net P/L" class="n"><span class="pl {{ row.net | pl_class }}">{{ row.net | signed }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No players yet. Players are added when they bet.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <header class="section-head">
+      <h2>Wins</h2>
+      <p class="muted">Logged when a bet settles, newest first.</p>
+    </header>
+    {% if wins %}
+      <table class="positions">
+        <thead>
+          <tr>
+            <th scope="col">Settled</th>
+            <th scope="col">Player</th>
+            <th scope="col">Bet</th>
+            <th scope="col">Pick</th>
+            <th scope="col" class="n">Staked</th>
+            <th scope="col" class="n">Profit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for win in wins %}
+            <tr>
+              <td data-label="Settled"><time data-ts="{{ win.settled_at }}">{{ win.settled_at }}</time></td>
+              <th scope="row" data-label="Player">{{ win.player }}</th>
+              <td data-label="Bet" class="wrap">{{ win.bet_title }}</td>
+              <td data-label="Pick">{{ win.pick }}</td>
+              <td data-label="Staked" class="n">{{ win.stake | money }}</td>
+              <td data-label="Profit" class="n"><span class="pl pos">{{ win.profit | signed }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No wins yet. They’ll show up here as bets settle.</p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

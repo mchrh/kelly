@@ -53,6 +53,14 @@ a:hover { text-decoration: underline; }
   margin-bottom: 24px; flex-wrap: wrap;
 }
 .top-actions { display: flex; align-items: center; gap: 10px; }
+.top-start { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+
+.nav { display: flex; gap: 4px; }
+.nav a {
+  color: var(--muted); font-weight: 500; padding: 6px 10px; border-radius: 8px; text-decoration: none;
+}
+.nav a:hover { color: var(--text); background: var(--raised); }
+.nav a[aria-current="page"] { color: var(--text); background: var(--raised); }
 .refresh-status { color: var(--muted); font-size: 12px; margin-right: 4px; }
 .refresh-status.failed { color: var(--neg); }
 
@@ -290,6 +298,19 @@ input[type="radio"] { accent-color: var(--accent); }
 
 .error-card { display: grid; gap: 10px; }
 
+/* --- leaderboard and players pages ------------------------------------------------------------ */
+
+.stack { display: grid; gap: 16px; }
+.section-head { display: grid; gap: 2px; margin-bottom: 8px; }
+.section-head .muted { font-size: 13px; }
+.positions .rank { width: 2.5em; color: var(--muted); }
+.rank-inline { display: none; color: var(--muted); margin-right: 8px; }
+.positions .wrap { overflow-wrap: anywhere; }
+.positions .actions { width: 1%; }
+.positions .actions form { display: flex; justify-content: flex-end; }
+.table-note { margin-top: 10px; }
+.stack .empty { padding: 24px 0; }
+
 /* --- narrow screens ------------------------------------------------------------ */
 
 @media (max-width: 760px) {
@@ -310,6 +331,10 @@ input[type="radio"] { accent-color: var(--accent); }
   .positions tbody th::before { content: none !important; }
   .positions td::before { content: attr(data-label); color: var(--muted); text-align: left; }
   .positions .sub { display: inline; margin-left: 6px; }
+  .positions td.rank { display: none; }
+  .rank-inline { display: inline; }
+  .positions tbody th { justify-content: flex-start; }
+  .positions .actions { width: auto; }
 
   .drawer { width: 100vw; border-left: 0; }
   .drawer-form { padding: 16px 16px 0; }
