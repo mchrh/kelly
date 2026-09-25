@@ -1,0 +1,41 @@
+{% set current = bet.settlement %}
+<form class="drawer-form" method="post" novalidate data-form="settlement"
+      action="{{ url_for('bets.set_settlement', bet_id=bet.id) }}">
+  <div class="drawer-head">
+    <h2 id="drawer-title">{{ 'Correct result' if current else 'Set result' }}</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <p class="muted">{{ bet.title }}</p>
+
+  {% if bet.review %}<p class="notice">{{ bet.review.reason }}</p>{% endif %}
+
+  <fieldset class="group">
+    <legend>Result</legend>
+    <div class="choices">
+      {% for o in bet.outcomes %}
+        <label class="choice">
+          <input type="radio" name="result" value="{{ o.id }}" {{ 'checked' if current and current.outcome_id == o.id }}>
+          <span>{{ o.label }} won</span>
+        </label>
+      {% endfor %}
+      <label class="choice">
+        <input type="radio" name="result" value="void" {{ 'checked' if current and current.result == 'void' }}>
+        <span>Void — refund stakes</span>
+      </label>
+    </div>
+    {% if error %}<p class="field-error" role="alert">{{ error }}</p>{% endif %}
+  </fieldset>
+
+  {% if current %}
+    <p class="hint">A corrected result is recorded as manual and won’t be overwritten by Polymarket.</p>
+  {% elif bet.polymarket %}
+    <p class="hint">Setting a result now settles this bet manually and stops Polymarket from settling it.</p>
+  {% endif %}
+
+  <div class="form-actions sticky">
+    <button type="button" class="btn" data-close>Cancel</button>
+    <button type="submit" class="btn primary">{{ 'Save correction' if current else 'Settle bet' }}</button>
+  </div>
+</form>

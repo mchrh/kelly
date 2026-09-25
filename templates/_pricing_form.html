@@ -1,0 +1,56 @@
+{% set linked = bet.polymarket is not none %}
+<form class="drawer-form" method="post" novalidate data-form="pricing"
+      action="{{ url_for('bets.update_pricing', bet_id=bet.id) }}">
+  <div class="drawer-head">
+    <h2 id="drawer-title">Update probabilities</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <p class="muted">{{ bet.title }}</p>
+
+  {% if linked %}
+    <p class="hint">
+      {% if bet.pricing_source == 'manual' %}
+        This bet uses manual probabilities instead of Polymarket midpoints.
+      {% else %}
+        This bet is priced from Polymarket midpoints. Saving manual probabilities overrides them.
+      {% endif %}
+      The Polymarket link still settles the bet automatically when the market resolves.
+    </p>
+  {% endif %}
+
+  <fieldset class="group" data-probs-fieldset>
+    <legend>{{ 'Manual probabilities' if linked else 'Current probabilities' }}</legend>
+    {% if bet.type == 'binary' %}
+      <div data-probs-binary>
+        <div class="prob-row">
+          <label for="p-yes">Yes</label>
+          <span class="pct-input"><input id="p-yes" name="prob_yes" inputmode="decimal" value="{{ form.probs.get('yes', '') }}" {% if errors.probabilities %}aria-invalid="true" aria-describedby="err-probabilities"{% endif %}><span>%</span></span>
+        </div>
+        <div class="prob-row"><span class="label">No</span><span class="num" data-prob-no>—</span></div>
+      </div>
+    {% else %}
+      <div data-probs-mc>
+        {% for o in bet.outcomes %}
+          <div class="prob-row">
+            <label for="p-{{ o.id }}">{{ o.label }}</label>
+            <span class="pct-input"><input id="p-{{ o.id }}" name="prob_{{ o.id }}" data-outcome="{{ o.id }}" inputmode="decimal" value="{{ form.probs.get(o.id, '') }}" {% if errors.probabilities %}aria-invalid="true" aria-describedby="err-probabilities"{% endif %}><span>%</span></span>
+          </div>
+        {% endfor %}
+        <div class="prob-row total"><span class="label">Total</span><span class="num" data-prob-total>—</span></div>
+      </div>
+    {% endif %}
+    {% if errors.probabilities %}<p class="field-error" id="err-probabilities">{{ errors.probabilities }}</p>{% endif %}
+    {% if not linked %}<p class="hint">Leave every field blank to clear the probabilities.</p>{% endif %}
+  </fieldset>
+
+  <div class="form-actions sticky">
+    {% if linked and bet.pricing_source == 'manual' %}
+      <button type="submit" name="action" value="resume" class="btn" formnovalidate>Resume Polymarket pricing</button>
+    {% else %}
+      <button type="button" class="btn" data-close>Cancel</button>
+    {% endif %}
+    <button type="submit" name="action" value="manual" class="btn primary">{{ 'Use manual probabilities' if linked else 'Save probabilities' }}</button>
+  </div>
+</form>

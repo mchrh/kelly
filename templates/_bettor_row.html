@@ -1,0 +1,41 @@
+<div class="bettor" data-bettor-row {% if row_error %}data-has-error{% endif %}>
+  <input type="hidden" name="pos_id" value="{{ p.id }}">
+  <div class="bettor-grid">
+    <div class="field name">
+      <label for="b-{{ i }}-name">Bettor</label>
+      <input id="b-{{ i }}-name" name="pos_name" value="{{ p.name }}" list="bettor-names" autocomplete="off">
+    </div>
+    <div class="field pick">
+      <label for="b-{{ i }}-pick">Pick</label>
+      <select id="b-{{ i }}-pick" name="pos_outcome" data-pick data-selected="{{ p.outcome_id }}">
+        <option value="">Choose…</option>
+        {% for o in outcomes %}<option value="{{ o.id }}" {{ 'selected' if o.id == p.outcome_id }}>{{ o.label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field stake">
+      <label for="b-{{ i }}-stake">Stake</label>
+      <input id="b-{{ i }}-stake" name="pos_stake" value="{{ p.stake }}" inputmode="decimal" data-stake autocomplete="off">
+    </div>
+    <div class="field format">
+      <label for="b-{{ i }}-format">Entry as</label>
+      <select id="b-{{ i }}-format" name="pos_format" data-format>
+        <option value="decimal_odds" {{ 'selected' if p.entry_format == 'decimal_odds' }}>Decimal odds</option>
+        <option value="probability" {{ 'selected' if p.entry_format == 'probability' }}>Entry probability</option>
+      </select>
+    </div>
+    <div class="field value">
+      <label for="b-{{ i }}-value">{{ 'Probability' if p.entry_format == 'probability' else 'Odds' }}</label>
+      <span class="pct-input {{ 'is-pct' if p.entry_format == 'probability' }}" data-value-wrap>
+        <input id="b-{{ i }}-value" name="pos_value" value="{{ p.entry_input }}" inputmode="decimal" data-value autocomplete="off"><span>%</span>
+      </span>
+    </div>
+    <div class="field payout">
+      <span class="label">Win payout</span>
+      <output class="num" data-payout>—</output>
+    </div>
+  </div>
+  <div class="bettor-foot">
+    {% if row_error %}<p class="field-error" role="alert">{{ row_error }}</p>{% else %}<span></span>{% endif %}
+    <button type="button" class="link-btn" data-remove-bettor>Remove</button>
+  </div>
+</div>

@@ -1,0 +1,166 @@
+{% macro field_error(key) -%}
+  {% if errors[key] %}<p class="field-error" id="err-{{ key }}">{{ errors[key] }}</p>{% endif %}
+{%- endmacro %}
+{% macro invalid(key) -%}
+  {% if errors[key] %}aria-invalid="true" aria-describedby="err-{{ key }}"{% endif %}
+{%- endmacro %}
+{% set is_mc = form.type == 'multiple_choice' %}
+{% set linked = form.polymarket is not none %}
+
+<form class="drawer-form" method="post" novalidate data-form="bet" data-currency="{{ currency_symbol() }}"
+      action="{{ url_for('bets.update_bet', bet_id=form.id) if form.id else url_for('bets.create_bet') }}">
+  <div class="drawer-head">
+    <h2 id="drawer-title">{{ 'Edit bet' if form.id else 'Add bet' }}</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  {% if errors %}<p class="form-alert" role="alert">Some fields need attention.</p>{% endif %}
+
+  <fieldset class="group">
+    <legend>Bet details</legend>
+    <div class="field">
+      <label for="f-title">Title</label>
+      <input id="f-title" name="title" value="{{ form.title }}" required autocomplete="off" {{ invalid('title') }}>
+      {{ field_error('title') }}
+    </div>
+
+    {% if not form.locked %}
+      <div class="field">
+        <span class="label" id="type-label">Type</span>
+        <div class="segmented" role="radiogroup" aria-labelledby="type-label">
+          <label><input type="radio" name="type" value="binary" {{ 'checked' if not is_mc }}> Binary (Yes/No)</label>
+          <label><input type="radio" name="type" value="multiple_choice" {{ 'checked' if is_mc }}> Multiple choice</label>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="field-row">
+      <div class="field">
+        <label for="f-bet-date">Bet date</label>
+        <input id="f-bet-date" type="date" name="bet_date" value="{{ form.bet_date }}" required {{ invalid('bet_date') }}>
+        {{ field_error('bet_date') }}
+      </div>
+      <div class="field">
+        <label for="f-expiry">Expiry date</label>
+        <input id="f-expiry" type="date" name="expiry_date" value="{{ form.expiry_date }}" required {{ invalid('expiry_date') }}>
+        {{ field_error('expiry_date') }}
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="f-notes">Notes / settlement terms <span class="muted">(optional)</span></label>
+      <textarea id="f-notes" name="notes" rows="3">{{ form.notes }}</textarea>
+    </div>
+  </fieldset>
+
+  {% if form.locked %}
+    <p class="hint">This bet is settled, so its outcomes, positions and odds are read-only. Use <strong>Correct result</strong> from the card menu to change the result.</p>
+  {% else %}
+
+  <fieldset class="group" data-section="outcomes" {{ 'hidden disabled' if not is_mc }}>
+    <legend>Outcomes</legend>
+    <p class="hint">List every possible result, with no overlaps. Add “Other” if needed.</p>
+    <div class="outcome-rows" data-outcome-rows>
+      {% for o in form.mc_outcomes %}
+        <div class="outcome-row" data-outcome-row>
+          <input type="hidden" name="outcome_id" value="{{ o.id }}">
+          <label class="sr-only" for="o-{{ o.id }}">Outcome {{ loop.index }}</label>
+          <input id="o-{{ o.id }}" name="outcome_label" value="{{ o.label }}" placeholder="Outcome {{ loop.index }}" autocomplete="off" {{ invalid('outcomes') }}>
+          <button type="button" class="icon-btn" data-remove-outcome aria-label="Remove outcome">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      {% endfor %}
+    </div>
+    {{ field_error('outcomes') }}
+    <button type="button" class="btn small" data-add-outcome>Add outcome</button>
+  </fieldset>
+
+  <fieldset class="group" data-section="polymarket" {{ 'hidden disabled' if is_mc }}>
+    <legend>Polymarket link <span class="muted">(optional)</span></legend>
+    <div class="field">
+      <label for="f-pm-url">Market or event URL</label>
+      <div class="inline">
+        <input id="f-pm-url" type="url" value="{{ form.polymarket.url if linked else '' }}" placeholder="https://polymarket.com/event/…" autocomplete="off" {{ invalid('polymarket') }}>
+        <button type="button" class="btn small" data-resolve data-endpoint="{{ url_for('bets.resolve_link') }}">Find market</button>
+      </div>
+      {{ field_error('polymarket') }}
+    </div>
+    <input type="hidden" name="polymarket_json" value="{{ form.polymarket | tojson if linked else '' }}" data-pm-json>
+    <div class="pm-status" data-pm-status aria-live="polite"></div>
+    <div class="pm-candidates" data-pm-candidates></div>
+    <div class="pm-selected" data-pm-selected {{ 'hidden' if not linked }}>
+      <p><span class="muted">Linked market</span><br>
+        <a data-pm-link href="{{ form.polymarket.url if linked else '#' }}" target="_blank" rel="noopener noreferrer">{{ form.polymarket.question if linked else '' }}</a>
+        <span class="muted" data-pm-prices></span>
+      </p>
+      <p class="hint">This market supplies both current prices and the final result. Make sure its question matches your bet’s terms.</p>
+      <button type="button" class="btn small" data-unlink>Remove link</button>
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>Bettors</legend>
+    {% if errors.positions %}<p class="field-error">{{ errors.positions }}</p>{% endif %}
+    <div class="bettor-rows" data-bettor-rows>
+      {% for p in form.positions %}
+        {% set i = loop.index0 %}
+        {% set row_error = (errors.pos or {}).get(i) %}
+        {% include "_bettor_row.html" %}
+      {% endfor %}
+    </div>
+    <button type="button" class="btn small" data-add-bettor>Add bettor</button>
+  </fieldset>
+
+  <details class="group collapsible" data-section="probabilities" {{ 'hidden' if linked }} {{ 'open' if form.probs.values() | select | list or errors.probabilities }}>
+    <summary>Current probabilities <span class="muted">(optional)</span></summary>
+    <fieldset {{ 'disabled' if linked }} data-probs-fieldset>
+      <legend class="sr-only">Current probabilities</legend>
+      <p class="hint">Used to estimate each position’s value. Leave blank if unknown.</p>
+      <div data-probs-binary {{ 'hidden' if is_mc }}>
+        <div class="prob-row">
+          <label for="p-yes">Yes</label>
+          <span class="pct-input"><input id="p-yes" name="prob_yes" inputmode="decimal" value="{{ form.probs.get('yes', '') }}" {{ 'disabled' if is_mc }} {{ invalid('probabilities') }}><span>%</span></span>
+        </div>
+        <div class="prob-row">
+          <span class="label">No</span>
+          <span class="num" data-prob-no>—</span>
+        </div>
+      </div>
+      <div data-probs-mc {{ 'hidden' if not is_mc }}>
+        <div data-probs-mc-rows>
+          {% for o in form.mc_outcomes %}
+            <div class="prob-row">
+              <label for="p-{{ o.id }}">{{ o.label or 'Outcome ' ~ loop.index }}</label>
+              <span class="pct-input"><input id="p-{{ o.id }}" name="prob_{{ o.id }}" data-outcome="{{ o.id }}" inputmode="decimal" value="{{ form.probs.get(o.id, '') }}" {{ 'disabled' if not is_mc }} {{ invalid('probabilities') }}><span>%</span></span>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="prob-row total"><span class="label">Total</span><span class="num" data-prob-total>—</span></div>
+      </div>
+      {{ field_error('probabilities') }}
+    </fieldset>
+  </details>
+  {% endif %}
+
+  <div class="form-actions sticky">
+    <button type="button" class="btn" data-close>Cancel</button>
+    <button type="submit" class="btn primary">{{ 'Save changes' if form.id else 'Add bet' }}</button>
+  </div>
+
+  <datalist id="bettor-names">
+    {% for name in names %}<option value="{{ name }}">{% endfor %}
+  </datalist>
+
+  <template data-tpl="bettor">
+    {% set p = {'id': '', 'name': '', 'outcome_id': '', 'stake': '', 'entry_format': 'decimal_odds', 'entry_input': ''} %}
+    {% set i = '__i__' %}
+    {% set row_error = none %}
+    {% include "_bettor_row.html" %}
+  </template>
+  <template data-tpl="binary-outcomes">
+    {% for o in binary_outcomes %}<option value="{{ o.id }}">{{ o.label }}</option>{% endfor %}
+  </template>
+</form>

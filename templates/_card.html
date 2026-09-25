@@ -1,0 +1,127 @@
+{% set b = v.bet %}
+{% set done = b.settlement is not none %}
+<article class="card" id="bet-{{ b.id }}">
+  <header class="card-head">
+    <div class="card-title">
+      <h2>{{ b.title }}</h2>
+      <p class="meta">
+        {{ 'Binary' if b.type == 'binary' else 'Multiple choice' }}
+        <span aria-hidden="true">·</span> Bet <time data-date="{{ b.bet_date }}">{{ b.bet_date }}</time>
+        <span aria-hidden="true">·</span> Expires <time data-date="{{ b.expiry_date }}">{{ b.expiry_date }}</time>
+      </p>
+    </div>
+    <div class="card-side">
+      {% if v.status == 'open' %}<span class="badge">Open</span>
+      {% elif v.status == 'awaiting' %}<span class="badge warn">Awaiting result</span>
+      {% elif v.status == 'review' %}<span class="badge alert">Needs result review</span>
+      {% elif v.status == 'void' %}<span class="badge">Void</span>
+      {% else %}<span class="badge done">Settled</span>{% endif %}
+
+      {% if not done %}
+        {% if v.pricing == 'manual' %}<span class="badge quiet">Manual</span>
+        {% elif v.pricing == 'live' %}<span class="badge quiet">Polymarket</span>
+        {% elif v.pricing == 'stale' %}<span class="badge warn">Polymarket · stale</span>
+        {% else %}<span class="badge warn">Polymarket · no quote</span>{% endif %}
+      {% endif %}
+
+      <details class="menu">
+        <summary class="icon-btn" id="menu-{{ b.id }}" aria-label="Actions for {{ b.title }}">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>
+        </summary>
+        <div class="menu-list">
+          <button type="button" data-drawer="{{ url_for('bets.edit_bet', bet_id=b.id) }}">Edit</button>
+          {% if not done %}
+            <button type="button" data-drawer="{{ url_for('bets.pricing_form', bet_id=b.id) }}">Update probabilities</button>
+            <button type="button" data-drawer="{{ url_for('bets.settlement_form', bet_id=b.id) }}">Set result</button>
+          {% else %}
+            <button type="button" data-drawer="{{ url_for('bets.settlement_form', bet_id=b.id) }}">Correct result</button>
+          {% endif %}
+          <button type="button" class="danger-text" data-delete="{{ url_for('bets.delete_bet', bet_id=b.id) }}" data-title="{{ b.title }}">Delete</button>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  {% if v.status == 'review' %}
+    <p class="notice">{{ b.review.reason }} Choose the result or void the bet from the menu.</p>
+  {% endif %}
+
+  {% if done %}
+    <p class="summary-line">
+      <span>{% if b.settlement.result == 'void' %}Void — stakes refunded{% else %}Result: <strong>{{ v.winner }}</strong>{% endif %}</span>
+      <span class="muted">
+        <span aria-hidden="true">·</span> {{ 'Settled from Polymarket' if b.settlement.source == 'polymarket' else 'Set manually' }}
+        <time data-ts="{{ b.settlement.settled_at }}">{{ b.settlement.settled_at }}</time>
+      </span>
+    </p>
+  {% else %}
+    <p class="summary-line">
+      {% for outcome, p in v.probabilities %}
+        <span class="prob"><span class="muted">{{ outcome.label }}</span> <span class="num">{{ p | pct }}</span></span>
+      {% endfor %}
+      <span class="muted quote-meta">
+        {% if v.pricing == 'manual' %}
+          {% if b.manual_updated_at %}Edited <time data-ts="{{ b.manual_updated_at }}">{{ b.manual_updated_at }}</time>{% else %}No probabilities entered{% endif %}
+        {% elif b.market_quote %}
+          {{ 'Last quote' if v.pricing == 'stale' else 'Midpoint' }} <time data-ts="{{ b.market_quote.fetched_at }}" data-time>{{ b.market_quote.fetched_at }}</time>
+        {% else %}
+          Waiting for a Polymarket quote
+        {% endif %}
+      </span>
+    </p>
+  {% endif %}
+
+  <table class="positions">
+    <thead>
+      <tr>
+        <th scope="col">Bettor</th>
+        <th scope="col">Pick</th>
+        <th scope="col" class="n">Stake</th>
+        <th scope="col" class="n">Entry odds</th>
+        {% if done %}
+          <th scope="col" class="n">Win payout</th>
+          <th scope="col">Result</th>
+          <th scope="col" class="n">Final payout</th>
+          <th scope="col" class="n">Realized P/L</th>
+        {% else %}
+          <th scope="col" class="n">Current prob.</th>
+          <th scope="col" class="n">Est. value</th>
+          <th scope="col" class="n">Est. P/L</th>
+          <th scope="col" class="n">Win payout</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for p, pick, pv in v.positions %}
+        <tr>
+          <th scope="row" data-label="Bettor">{{ p.name }}</th>
+          <td data-label="Pick">{{ pick }}</td>
+          <td data-label="Stake" class="n">{{ pv.stake | money }}</td>
+          <td data-label="Entry odds" class="n"><span>{{ pv.odds | odds }} <span class="sub">{{ pv.entry_probability | pct }}</span></span></td>
+          {% if done %}
+            <td data-label="Win payout" class="n">{{ pv.payout | money }}</td>
+            <td data-label="Result">{{ {'won': 'Won', 'lost': 'Lost', 'void': 'Refunded'}[pv.result] }}</td>
+            <td data-label="Final payout" class="n">{{ pv.final_payout | money }}</td>
+            <td data-label="Realized P/L" class="n"><span class="pl {{ pv.realized_pl | pl_class }}">{{ pv.realized_pl | signed }}</span></td>
+          {% else %}
+            <td data-label="Current prob." class="n">{{ pv.probability | pct }}</td>
+            <td data-label="Est. value" class="n">{{ pv.value | money }}</td>
+            <td data-label="Est. P/L" class="n"><span class="pl {{ pv.pl | pl_class }}">{{ pv.pl | signed }}</span></td>
+            <td data-label="Win payout" class="n">{{ pv.payout | money }}</td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if b.notes or b.polymarket %}
+    <footer class="card-foot">
+      {% if b.notes %}<p class="notes">{{ b.notes }}</p>{% endif %}
+      {% if b.polymarket %}
+        <p class="link-line">
+          <a href="{{ b.polymarket.url }}" target="_blank" rel="noopener noreferrer">{{ 'View on Polymarket' if b.polymarket.question in ('', b.title) else b.polymarket.question }} <span aria-hidden="true">↗</span></a>
+        </p>
+      {% endif %}
+    </footer>
+  {% endif %}
+</article>

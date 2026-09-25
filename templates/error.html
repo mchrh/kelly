@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bets — data file error</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="page">
+    <header class="top"><h1>Bets</h1></header>
+    <div class="card error-card" role="alert">
+      <h2>The data file could not be loaded</h2>
+      <p>{{ message }}</p>
+      <p class="muted">Nothing has been written, so the file is unchanged. Fix or move it, then restart the app.</p>
+    </div>
+  </div>
+</body>
+</html>

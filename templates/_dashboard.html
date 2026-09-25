@@ -1,0 +1,28 @@
+<div id="refresh-meta" hidden
+     data-at="{{ refresh.at or '' }}"
+     data-errors="{{ refresh.errors | join(' ') }}"></div>
+
+<div class="tabs" role="tablist" aria-label="Bet lists">
+  <button type="button" role="tab" id="tab-active" data-tab="active" aria-controls="panel-active" aria-selected="true">
+    Active <span class="count">{{ active | length }}</span>
+  </button>
+  <button type="button" role="tab" id="tab-completed" data-tab="completed" aria-controls="panel-completed" aria-selected="false" tabindex="-1">
+    Completed <span class="count">{{ completed | length }}</span>
+  </button>
+</div>
+
+<section id="panel-active" role="tabpanel" aria-labelledby="tab-active" class="panel">
+  {% for v in active %}
+    {% include "_card.html" %}
+  {% else %}
+    <p class="empty">No active bets. Use <strong>Add bet</strong> to record one.</p>
+  {% endfor %}
+</section>
+
+<section id="panel-completed" role="tabpanel" aria-labelledby="tab-completed" class="panel" hidden>
+  {% for v in completed %}
+    {% include "_card.html" %}
+  {% else %}
+    <p class="empty">Settled bets will appear here.</p>
+  {% endfor %}
+</section>
