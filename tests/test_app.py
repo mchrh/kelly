@@ -23,20 +23,20 @@ def test_three_bettors_save_and_display(client, data_file):
     positions = saved(data_file)["bets"][0]["positions"]
     assert [p["name"] for p in positions] == ["Alice", "Bob", "Cara"]
     assert positions[2]["entry_value"] == "0.4" and positions[2]["payout"] == "50"
-    assert "Cara" in html and "$20.00" in html  # 50 to collect at 40% risks 20
+    assert "Cara" in html and "€20.00" in html  # 50 to collect at 40% risks 20
 
 
 def test_equivalent_entry_formats_through_form(client):
     form = bet_form(pos_format=["decimal_odds", "probability"], pos_value=["2.50", "40%"],
                     pos_outcome=["yes", "yes"], pos_amount=["100", "100"])
     html = client.post("/bets", data=form).get_data(as_text=True)
-    assert html.count("$40.00") == 2
+    assert html.count("€40.00") == 2
 
 
 def test_current_valuation_displayed(client):
     html = client.post("/bets", data=bet_form(prob_yes="60")).get_data(as_text=True)
-    assert "$60.00" in html and "+$20.00" in html   # Alice: collects 100, risked 40
-    assert "$32.00" in html and "−$8.00" in html    # Bob: collects 80, risked 40
+    assert "€60.00" in html and "+€20.00" in html   # Alice: collects 100, risked 40
+    assert "€32.00" in html and "−€8.00" in html    # Bob: collects 80, risked 40
 
 
 def test_binary_head_to_head_amounts(client, data_file):
@@ -46,15 +46,15 @@ def test_binary_head_to_head_amounts(client, data_file):
     html = client.post("/bets", data=form).get_data(as_text=True)
     positions = saved(data_file)["bets"][0]["positions"]
     assert [p["payout"] for p in positions] == ["100", "100"] and "stake" not in positions[0]
-    assert html.count('data-label="Stake" class="n">$20.00') == 1
-    assert html.count('data-label="Stake" class="n">$80.00') == 1
+    assert html.count('data-label="Stake" class="n">€20.00') == 1
+    assert html.count('data-label="Stake" class="n">€80.00') == 1
     # Binary rows show only the net win, not the shared bet amount.
     assert '<th scope="col" class="n">To win</th>' in html and "Win payout" not in html
-    assert 'data-label="To win" class="n">+$80.00' in html
-    assert 'data-label="To win" class="n">+$20.00' in html
-    assert "$100.00" not in html
-    assert html.count('data-label="Est. value" class="n">$20.00') == 1
-    assert html.count('data-label="Est. value" class="n">$80.00') == 1
+    assert 'data-label="To win" class="n">+€80.00' in html
+    assert 'data-label="To win" class="n">+€20.00' in html
+    assert "€100.00" not in html
+    assert html.count('data-label="Est. value" class="n">€20.00') == 1
+    assert html.count('data-label="Est. value" class="n">€80.00') == 1
 
 
 def test_older_binary_files_read_stake_as_bet_amount(data_file, api):
@@ -76,7 +76,7 @@ def test_older_binary_files_read_stake_as_bet_amount(data_file, api):
 def test_missing_prices_show_dash_but_keep_entry_terms(client, data_file):
     html = client.post("/bets", data=bet_form()).get_data(as_text=True)
     assert saved(data_file)["bets"][0]["manual_probabilities"] is None
-    assert "2.50" in html and 'data-label="To win" class="n">+$60.00' in html
+    assert "2.50" in html and 'data-label="To win" class="n">+€60.00' in html
     assert 'data-label="Est. value" class="n">—' in html
     assert 'data-label="Current prob." class="n">—' in html
 
@@ -89,10 +89,10 @@ def test_multiple_choice_uses_each_outcomes_probability(client, data_file):
     bet = saved(data_file)["bets"][0]
     assert [o["label"] for o in bet["outcomes"]] == ["Red", "Blue", "Other"]
     assert bet["manual_probabilities"] == {"a": "0.5", "b": "0.3", "c": "0.2"}
-    assert "$100.00" in html      # 200 × 0.5
-    assert "$120.00" in html      # 400 × 0.3
+    assert "€100.00" in html      # 200 × 0.5
+    assert "€120.00" in html      # 400 × 0.3
     # Multiple choice keeps the gross payout.
-    assert 'data-label="Win payout" class="n">$200.00' in html and "To win" not in html
+    assert 'data-label="Win payout" class="n">€200.00' in html and "To win" not in html
 
 
 def test_multiple_choice_needs_three_distinct_outcomes(client):
@@ -288,7 +288,7 @@ def test_confirmed_result_settles_once(client, api, linked_bet, data_file):
     settlement = saved(data_file)["bets"][0]["settlement"]
     assert settlement["result"] == "winner" and settlement["outcome_id"] == "no"
     assert settlement["source"] == "polymarket"
-    assert "Result: <strong>No</strong>" in html and "+$40.00" in html and "−$40.00" in html
+    assert "Result: <strong>No</strong>" in html and "+€40.00" in html and "−€40.00" in html
     api.calls.clear()
     client.post("/refresh")
     assert saved(data_file)["bets"][0]["settlement"] == settlement
@@ -428,3 +428,9 @@ def test_logo_and_icons_are_served(client):
         if name != "logo.svg":
             assert f"/static/{name}" in html
         assert client.get(f"/static/{name}").status_code == 200
+
+
+def test_default_currency_is_euro(client, data_file):
+    html = client.post("/bets", data=bet_form()).get_data(as_text=True)
+    assert saved(data_file)["currency"] == "EUR"
+    assert "€40.00" in html and "$" not in html

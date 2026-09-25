@@ -19,6 +19,7 @@ STALE_AFTER = timedelta(minutes=2)
 TOTAL_TOLERANCE = Decimal("0.01")  # percentage points
 HUNDRED = Decimal(100)
 BINARY_OUTCOMES = [{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}]
+DEFAULT_CURRENCY = "EUR"
 CURRENCY_SYMBOLS = {"USD": "$", "EUR": "€", "GBP": "£", "JPY": "¥", "CAD": "CA$", "AUD": "A$"}
 
 bp = Blueprint("bets", __name__)
@@ -72,14 +73,14 @@ def new_id():
 
 def load_state(path):
     if not path.exists():
-        return {"currency": "USD", "bets": []}
+        return {"currency": DEFAULT_CURRENCY, "bets": []}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise StateError(f"Could not read {path}: {exc}") from exc
     if not isinstance(data, dict) or not isinstance(data.get("bets"), list):
         raise StateError(f'{path} is not a valid bets file (expected an object with a "bets" list).')
-    data.setdefault("currency", "USD")
+    data.setdefault("currency", DEFAULT_CURRENCY)
     for bet in data["bets"]:
         # Binary positions record the amount the winner collects. Files saved before
         # that change stored it under "stake".
@@ -642,7 +643,7 @@ def refresh():
 # --- template filters and app factory --------------------------------------------------
 
 def currency_symbol():
-    code = ctx()["state"].get("currency", "USD") if ctx()["state"] else "USD"
+    code = ctx()["state"].get("currency", DEFAULT_CURRENCY) if ctx()["state"] else DEFAULT_CURRENCY
     return CURRENCY_SYMBOLS.get(code, code + " ")
 
 

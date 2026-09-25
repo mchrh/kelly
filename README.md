@@ -33,10 +33,10 @@ If the file is missing, the dashboard starts empty. If the file exists but can't
 
 ## Currency
 
-All amounts use a single display currency, set by the `currency` field at the top of `data/bets.json`:
+All amounts use a single display currency, set by the `currency` field at the top of `data/bets.json`. It defaults to euros (`EUR`). To use a different currency:
 
 ```json
-{ "currency": "EUR", "bets": [ ... ] }
+{ "currency": "USD", "bets": [ ... ] }
 ```
 
 `USD`, `EUR`, `GBP`, `JPY`, `CAD` and `AUD` show a symbol. Any other code is shown as a prefix, for example `CHF 12.00`. Change the value while the app is stopped, then start it again.
