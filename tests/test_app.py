@@ -1,4 +1,6 @@
 import json
+import re
+from html import unescape
 
 import app as bets_app
 from conftest import NO_TOKEN, YES_TOKEN, bet_form, gamma_market, saved
@@ -15,39 +17,69 @@ def test_default_form_is_binary_with_two_bettors(client):
 
 def test_three_bettors_save_and_display(client, data_file):
     form = bet_form(pos_id=["", "", ""], pos_name=["Alice", "Bob", "Cara"], pos_outcome=["yes", "no", "yes"],
-                    pos_stake=["100", "80", "50"], pos_format=["decimal_odds", "decimal_odds", "probability"],
+                    pos_amount=["100", "80", "50"], pos_format=["decimal_odds", "decimal_odds", "probability"],
                     pos_value=["2.50", "2.00", "40"], prob_yes="60")
     html = client.post("/bets", data=form).get_data(as_text=True)
     positions = saved(data_file)["bets"][0]["positions"]
     assert [p["name"] for p in positions] == ["Alice", "Bob", "Cara"]
-    assert positions[2]["entry_value"] == "0.4"
-    assert "Cara" in html and "$125.00" in html  # 50 at 40% pays 125
+    assert positions[2]["entry_value"] == "0.4" and positions[2]["payout"] == "50"
+    assert "Cara" in html and "$20.00" in html  # 50 to collect at 40% risks 20
 
 
 def test_equivalent_entry_formats_through_form(client):
     form = bet_form(pos_format=["decimal_odds", "probability"], pos_value=["2.50", "40%"],
-                    pos_outcome=["yes", "yes"], pos_stake=["100", "100"])
+                    pos_outcome=["yes", "yes"], pos_amount=["100", "100"])
     html = client.post("/bets", data=form).get_data(as_text=True)
-    assert html.count("$250.00") == 2
+    assert html.count("$40.00") == 2
 
 
 def test_current_valuation_displayed(client):
     html = client.post("/bets", data=bet_form(prob_yes="60")).get_data(as_text=True)
-    assert "$150.00" in html and "+$50.00" in html
-    assert "$64.00" in html and "−$16.00" in html
+    assert "$60.00" in html and "+$20.00" in html   # Alice: collects 100, risked 40
+    assert "$32.00" in html and "−$8.00" in html    # Bob: collects 80, risked 40
+
+
+def test_binary_head_to_head_amounts(client, data_file):
+    # Both bet 100: Yes at 20% risks 20 to win 80; No at 80% risks 80 to win 20.
+    form = bet_form(pos_amount=["100", "100"], pos_format=["probability", "probability"],
+                    pos_value=["20", "80"], prob_yes="20")
+    html = client.post("/bets", data=form).get_data(as_text=True)
+    positions = saved(data_file)["bets"][0]["positions"]
+    assert [p["payout"] for p in positions] == ["100", "100"] and "stake" not in positions[0]
+    assert html.count('data-label="Stake" class="n">$20.00') == 1
+    assert html.count('data-label="Stake" class="n">$80.00') == 1
+    assert "+$80.00 profit" in html and "+$20.00 profit" in html
+    assert html.count('data-label="Est. value" class="n">$20.00') == 1
+    assert html.count('data-label="Est. value" class="n">$80.00') == 1
+
+
+def test_older_binary_files_read_stake_as_bet_amount(data_file, api):
+    data_file.parent.mkdir(parents=True)
+    bet = {"id": "b", "title": "Old", "type": "binary", "bet_date": "2026-09-25", "expiry_date": "2026-12-31",
+           "notes": "", "outcomes": [{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}],
+           "positions": [{"id": "p", "name": "A", "outcome_id": "yes", "stake": "100",
+                          "entry_format": "probability", "entry_value": "0.235"}],
+           "pricing_source": "manual", "manual_probabilities": None, "manual_updated_at": None,
+           "polymarket": None, "market_quote": None, "settlement": None, "review": None,
+           "created_at": "2026-09-25T00:00:00Z", "updated_at": "2026-09-25T00:00:00Z"}
+    data_file.write_text(json.dumps({"currency": "USD", "bets": [bet]}))
+    app = bets_app.create_app(data_file)
+    position = app.extensions["bets"]["state"]["bets"][0]["positions"][0]
+    assert position["payout"] == "100" and "stake" not in position
+    assert 'data-label="Stake" class="n">$23.50' in app.test_client().get("/").get_data(as_text=True)
 
 
 def test_missing_prices_show_dash_but_keep_entry_terms(client, data_file):
     html = client.post("/bets", data=bet_form()).get_data(as_text=True)
     assert saved(data_file)["bets"][0]["manual_probabilities"] is None
-    assert "2.50" in html and "$250.00" in html
+    assert "2.50" in html and "$100.00" in html
     assert 'data-label="Est. value" class="n">—' in html
     assert 'data-label="Current prob." class="n">—' in html
 
 
 def test_multiple_choice_uses_each_outcomes_probability(client, data_file):
     form = bet_form(type="multiple_choice", outcome_id=["a", "b", "c"], outcome_label=["Red", "Blue", "Other"],
-                    pos_outcome=["a", "b"], pos_value=["2.00", "4.00"], pos_stake=["100", "100"],
+                    pos_outcome=["a", "b"], pos_value=["2.00", "4.00"], pos_amount=["100", "100"],
                     prob_a="50", prob_b="30", prob_c="20")
     html = client.post("/bets", data=form).get_data(as_text=True)
     bet = saved(data_file)["bets"][0]
@@ -85,12 +117,12 @@ def test_distribution_within_tolerance_is_accepted_unchanged(client, data_file):
 
 
 def test_input_validation(client):
-    form = bet_form(pos_name=["Alice", "alice"], pos_stake=["0", "80"], pos_value=["1", "2"],
+    form = bet_form(pos_name=["Alice", "alice"], pos_amount=["0", "80"], pos_value=["1", "2"],
                     expiry_date="2026-08-01", title="")
     html = client.post("/bets", data=form).get_data(as_text=True)
     assert "Enter a title." in html
     assert "Expiry must be on or after the bet date." in html
-    assert "Enter a positive stake; decimal odds must be greater than 1." in html
+    assert "Enter a positive bet amount; decimal odds must be greater than 1." in html
     assert "Use a different name from other bettors." in html
     bad_prob = bet_form(pos_format=["probability", "decimal_odds"], pos_value=["100", "2"])
     assert "Entry probability must be between 0% and 100%" in client.post("/bets", data=bad_prob).get_data(as_text=True)
@@ -250,7 +282,7 @@ def test_confirmed_result_settles_once(client, api, linked_bet, data_file):
     settlement = saved(data_file)["bets"][0]["settlement"]
     assert settlement["result"] == "winner" and settlement["outcome_id"] == "no"
     assert settlement["source"] == "polymarket"
-    assert "Result: <strong>No</strong>" in html and "+$80.00" in html and "−$100.00" in html
+    assert "Result: <strong>No</strong>" in html and "+$40.00" in html and "−$40.00" in html
     api.calls.clear()
     client.post("/refresh")
     assert saved(data_file)["bets"][0]["settlement"] == settlement
@@ -301,11 +333,11 @@ def test_completed_bet_only_allows_metadata_edits(client, data_file):
     client.post("/bets", data=bet_form())
     bet_id = saved(data_file)["bets"][0]["id"]
     client.post(f"/bets/{bet_id}/settlement", data={"result": "yes"})
-    form = bet_form(title="Renamed", pos_stake=["999", "999"])
+    form = bet_form(title="Renamed", pos_amount=["999", "999"])
     assert client.post(f"/bets/{bet_id}/edit", data=form).status_code == 200
     bet = saved(data_file)["bets"][0]
     assert bet["title"] == "Renamed"
-    assert [p["stake"] for p in bet["positions"]] == ["100", "80"]  # as entered
+    assert [p["payout"] for p in bet["positions"]] == ["100", "80"]
 
 
 def test_metadata_failure_does_not_block_midpoints(client, api, linked_bet, data_file):
@@ -370,3 +402,14 @@ def test_saves_are_atomic(client, data_file):
 def test_user_text_is_escaped(client):
     html = client.post("/bets", data=bet_form(title="<script>x</script>")).get_data(as_text=True)
     assert "<script>x" not in html and "&lt;script&gt;" in html
+
+
+def test_editing_a_linked_bet_keeps_its_link(client, linked_bet, data_file):
+    html = client.get(f"/bets/{linked_bet['id']}/edit").get_data(as_text=True)
+    raw = re.search(r'name="polymarket_json" value="([^"]*)"', html).group(1)
+    assert json.loads(unescape(raw)) == linked_bet["polymarket"]
+    client.post(f"/bets/{linked_bet['id']}/edit", data=bet_form(title="Renamed", polymarket_json=unescape(raw)))
+    bet = saved(data_file)["bets"][0]
+    assert bet["title"] == "Renamed"
+    assert bet["polymarket"] == linked_bet["polymarket"]
+    assert bet["market_quote"] == linked_bet["market_quote"]

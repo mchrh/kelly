@@ -118,7 +118,7 @@ def bet_form(**overrides):
         "pos_id": ["", ""],
         "pos_name": ["Alice", "Bob"],
         "pos_outcome": ["yes", "no"],
-        "pos_stake": ["100", "80"],
+        "pos_amount": ["100", "80"],
         "pos_format": ["decimal_odds", "decimal_odds"],
         "pos_value": ["2.50", "2.00"],
     }

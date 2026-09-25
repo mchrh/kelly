@@ -371,7 +371,9 @@
     const symbol = form.dataset.currency || "";
     const moneyFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+    const binaryHint = form.querySelector("[data-binary-hint]");
     const type = () => form.querySelector('input[name="type"]:checked').value;
+    const money = (x) => symbol + moneyFmt.format(x);
     const linked = () => Boolean(pmJson.value);
 
     function showSection(el, show) {
@@ -449,6 +451,9 @@
       syncProbabilityMode();
       rebuildPicks();
       rebuildMcProbabilities();
+      binaryHint.hidden = mc;
+      form.querySelectorAll("[data-amount-label]").forEach((label) => { label.textContent = mc ? "Stake" : "Bet amount"; });
+      bettorRows.querySelectorAll("[data-bettor-row]").forEach(updatePayout);
     }
 
     // Outcome rows
@@ -479,16 +484,48 @@
     }
 
     // Bettor rows
+    function entryProbability(row) {
+      const v = parseNum(row.querySelector("[data-value]").value);
+      if (v === null) return null;
+      if (row.querySelector("[data-format]").value === "probability") return v > 0 && v < 100 ? v / 100 : null;
+      return v > 1 ? 1 / v : null;
+    }
+
     function updatePayout(row) {
-      const stake = parseNum(row.querySelector("[data-stake]").value);
-      const value = parseNum(row.querySelector("[data-value]").value);
-      const isPct = row.querySelector("[data-format]").value === "probability";
-      let payout = null;
-      if (stake !== null && stake > 0 && value !== null) {
-        if (isPct && value > 0 && value < 100) payout = stake / (value / 100);
-        if (!isPct && value > 1) payout = stake * value;
+      const amount = parseNum(row.querySelector("[data-amount]").value);
+      const q = entryProbability(row);
+      const valid = amount !== null && amount > 0 && q !== null;
+      const binary = type() === "binary";
+      row.querySelector("[data-payout-label]").textContent = binary ? "Risks" : "Win payout";
+      // Binary: the amount is what the winner collects, and the stake is its share at q.
+      row.querySelector("[data-payout]").textContent = !valid ? "—"
+        : binary ? `${money(amount * q)} to win ${money(amount * (1 - q))}` : money(amount / q);
+    }
+
+    // In a two-person binary bet, the other bettor takes the opposite side for the
+    // same amount at the complementary probability. Editing either row updates the other.
+    function matchOtherSide(row, changed) {
+      if (type() !== "binary") return;
+      const rows = [...bettorRows.querySelectorAll("[data-bettor-row]")];
+      if (rows.length !== 2) return;
+      const other = rows[rows[0] === row ? 1 : 0];
+      const pick = row.querySelector("[data-pick]").value;
+      const otherPick = other.querySelector("[data-pick]");
+      if (changed === "pick" && pick) {
+        otherPick.value = pick === "yes" ? "no" : "yes";
+        otherPick.dataset.selected = otherPick.value;
       }
-      row.querySelector("[data-payout]").textContent = payout === null ? "—" : symbol + moneyFmt.format(payout);
+      if (!pick || otherPick.value === pick) return;
+      if (changed === "amount") {
+        other.querySelector("[data-amount]").value = row.querySelector("[data-amount]").value;
+      } else {
+        const q = entryProbability(row);
+        if (q !== null) {
+          const isPct = other.querySelector("[data-format]").value === "probability";
+          other.querySelector("[data-value]").value = trimNumber(isPct ? (1 - q) * 100 : 1 / (1 - q), 10);
+        }
+      }
+      updatePayout(other);
     }
 
     function switchFormat(row) {
@@ -605,7 +642,10 @@
     form.addEventListener("change", (e) => {
       if (e.target.name === "type") setType();
       if (e.target.matches("[data-format]")) switchFormat(e.target.closest("[data-bettor-row]"));
-      if (e.target.matches("[data-pick]")) e.target.dataset.selected = e.target.value;
+      if (e.target.matches("[data-pick]")) {
+        e.target.dataset.selected = e.target.value;
+        matchOtherSide(e.target.closest("[data-bettor-row]"), "pick");
+      }
     });
 
     form.addEventListener("input", (e) => {
@@ -616,7 +656,11 @@
         if (label) label.textContent = e.target.value.trim() || label.textContent;
       }
       const row = e.target.closest("[data-bettor-row]");
-      if (row) updatePayout(row);
+      if (row) {
+        updatePayout(row);
+        if (e.target.matches("[data-amount]")) matchOtherSide(row, "amount");
+        else if (e.target.matches("[data-value]")) matchOtherSide(row, "value");
+      }
     });
 
     form.addEventListener("click", (e) => {

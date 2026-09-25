@@ -80,6 +80,13 @@ def load_state(path):
     if not isinstance(data, dict) or not isinstance(data.get("bets"), list):
         raise StateError(f'{path} is not a valid bets file (expected an object with a "bets" list).')
     data.setdefault("currency", "USD")
+    for bet in data["bets"]:
+        # Binary positions record the amount the winner collects. Files saved before
+        # that change stored it under "stake".
+        if bet.get("type") == "binary":
+            for position in bet.get("positions", []):
+                if "payout" not in position and "stake" in position:
+                    position["payout"] = position.pop("stake")
     return data
 
 
@@ -187,7 +194,7 @@ def render_dashboard():
 # --- forms -------------------------------------------------------------------------
 
 def blank_position():
-    return {"id": "", "name": "", "outcome_id": "", "stake": "", "entry_format": "decimal_odds", "entry_input": ""}
+    return {"id": "", "name": "", "outcome_id": "", "amount": "", "entry_format": "probability", "entry_input": ""}
 
 
 def entry_input(position):
@@ -207,7 +214,8 @@ def bet_to_form(bet):
         "expiry_date": bet["expiry_date"],
         "notes": bet.get("notes", ""),
         "mc_outcomes": [dict(o) for o in bet["outcomes"]] if is_mc else [{"id": new_id(), "label": ""} for _ in range(3)],
-        "positions": [dict(p, entry_input=entry_input(p)) for p in bet["positions"]],
+        "positions": [dict(p, entry_input=entry_input(p), amount=p.get("payout", p.get("stake")))
+                      for p in bet["positions"]],
         "probs": {key: plain(Decimal(value) * HUNDRED) for key, value in probs.items()},
         "polymarket": bet.get("polymarket"),
     }
@@ -246,11 +254,11 @@ def form_from_request(existing):
         for oid, label in zip(f.getlist("outcome_id"), f.getlist("outcome_label"))
     ]
     form["positions"] = [
-        {"id": pid, "name": name.strip(), "outcome_id": outcome, "stake": stake.strip(),
+        {"id": pid, "name": name.strip(), "outcome_id": outcome, "amount": amount.strip(),
          "entry_format": "probability" if fmt == "probability" else "decimal_odds", "entry_input": value.strip()}
-        for pid, name, outcome, stake, fmt, value in zip(
+        for pid, name, outcome, amount, fmt, value in zip(
             f.getlist("pos_id"), f.getlist("pos_name"), f.getlist("pos_outcome"),
-            f.getlist("pos_stake"), f.getlist("pos_format"), f.getlist("pos_value"),
+            f.getlist("pos_amount"), f.getlist("pos_format"), f.getlist("pos_value"),
         )
     ]
     form["probs"] = {key[5:]: value.strip() for key, value in f.items() if key.startswith("prob_")}
@@ -349,6 +357,8 @@ def validate(form):
     if len(form["positions"]) < 2:
         errors["positions"] = "Add at least two bettors."
     seen_names = set()
+    # Binary bets record the amount the winner collects; multiple choice records the stake.
+    amount_key = "payout" if form["type"] == "binary" else "stake"
     for index, row in enumerate(form["positions"]):
         problems = []
         if not row["name"]:
@@ -358,9 +368,9 @@ def validate(form):
         seen_names.add(row["name"].casefold())
         if row["outcome_id"] not in outcome_ids:
             problems.append("choose a pick")
-        stake = parse_number(row["stake"])
-        if stake is None or stake <= 0:
-            problems.append("enter a positive stake")
+        amount = parse_number(row["amount"])
+        if amount is None or amount <= 0:
+            problems.append("enter a positive " + ("bet amount" if amount_key == "payout" else "stake"))
         value = parse_number(row["entry_input"])
         if row["entry_format"] == "decimal_odds":
             if value is None or value <= 1:
@@ -376,7 +386,7 @@ def validate(form):
             "id": row["id"] or new_id(),
             "name": row["name"],
             "outcome_id": row["outcome_id"],
-            "stake": format(stake, "f"),
+            amount_key: format(amount, "f"),
             "entry_format": row["entry_format"],
             "entry_value": format(value if row["entry_format"] == "decimal_odds" else value / HUNDRED, "f"),
         })

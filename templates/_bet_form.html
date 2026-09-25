@@ -88,7 +88,7 @@
       </div>
       {{ field_error('polymarket') }}
     </div>
-    <input type="hidden" name="polymarket_json" value="{{ form.polymarket | tojson if linked else '' }}" data-pm-json>
+    <input type="hidden" name="polymarket_json" value="{{ form.polymarket | tojson | forceescape if linked else '' }}" data-pm-json>
     <div class="pm-status" data-pm-status aria-live="polite"></div>
     <div class="pm-candidates" data-pm-candidates></div>
     <div class="pm-selected" data-pm-selected {{ 'hidden' if not linked }}>
@@ -103,6 +103,7 @@
 
   <fieldset class="group">
     <legend>Bettors</legend>
+    <p class="hint" data-binary-hint {{ 'hidden' if is_mc }}>Bet amount is what the winner collects. Each side risks its probability’s share: Yes at 20% on 100 risks 20 to win 80, and the other side takes No at 80%, risking 80 to win 20.</p>
     {% if errors.positions %}<p class="field-error">{{ errors.positions }}</p>{% endif %}
     <div class="bettor-rows" data-bettor-rows>
       {% for p in form.positions %}
@@ -155,7 +156,7 @@
   </datalist>
 
   <template data-tpl="bettor">
-    {% set p = {'id': '', 'name': '', 'outcome_id': '', 'stake': '', 'entry_format': 'decimal_odds', 'entry_input': ''} %}
+    {% set p = {'id': '', 'name': '', 'outcome_id': '', 'amount': '', 'entry_format': 'probability', 'entry_input': ''} %}
     {% set i = '__i__' %}
     {% set row_error = none %}
     {% include "_bettor_row.html" %}

@@ -99,7 +99,7 @@
           <td data-label="Stake" class="n">{{ pv.stake | money }}</td>
           <td data-label="Entry odds" class="n"><span>{{ pv.odds | odds }} <span class="sub">{{ pv.entry_probability | pct }}</span></span></td>
           {% if done %}
-            <td data-label="Win payout" class="n">{{ pv.payout | money }}</td>
+            <td data-label="Win payout" class="n"><span>{{ pv.payout | money }} <span class="sub">{{ pv.profit_if_won | signed }} profit</span></span></td>
             <td data-label="Result">{{ {'won': 'Won', 'lost': 'Lost', 'void': 'Refunded'}[pv.result] }}</td>
             <td data-label="Final payout" class="n">{{ pv.final_payout | money }}</td>
             <td data-label="Realized P/L" class="n"><span class="pl {{ pv.realized_pl | pl_class }}">{{ pv.realized_pl | signed }}</span></td>
@@ -107,7 +107,7 @@
             <td data-label="Current prob." class="n">{{ pv.probability | pct }}</td>
             <td data-label="Est. value" class="n">{{ pv.value | money }}</td>
             <td data-label="Est. P/L" class="n"><span class="pl {{ pv.pl | pl_class }}">{{ pv.pl | signed }}</span></td>
-            <td data-label="Win payout" class="n">{{ pv.payout | money }}</td>
+            <td data-label="Win payout" class="n"><span>{{ pv.payout | money }} <span class="sub">{{ pv.profit_if_won | signed }} profit</span></span></td>
           {% endif %}
         </tr>
       {% endfor %}

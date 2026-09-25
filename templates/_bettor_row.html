@@ -13,8 +13,8 @@
       </select>
     </div>
     <div class="field stake">
-      <label for="b-{{ i }}-stake">Stake</label>
-      <input id="b-{{ i }}-stake" name="pos_stake" value="{{ p.stake }}" inputmode="decimal" data-stake autocomplete="off">
+      <label for="b-{{ i }}-amount" data-amount-label>{{ 'Stake' if form.type == 'multiple_choice' else 'Bet amount' }}</label>
+      <input id="b-{{ i }}-amount" name="pos_amount" value="{{ p.amount }}" inputmode="decimal" data-amount autocomplete="off">
     </div>
     <div class="field format">
       <label for="b-{{ i }}-format">Entry as</label>
@@ -30,7 +30,7 @@
       </span>
     </div>
     <div class="field payout">
-      <span class="label">Win payout</span>
+      <span class="label" data-payout-label>Win payout</span>
       <output class="num" data-payout>—</output>
     </div>
   </div>
